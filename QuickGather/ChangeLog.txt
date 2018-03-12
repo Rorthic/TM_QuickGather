@@ -1,14 +1,22 @@
 ﻿
-ver 1.01
-changed default MaxSearchBlock to 1000 for Harvest.cfg and Veinmine.cfg
+ver 1.1
+changed MaxSearchBlock to MaxBlockCollection with default 1000
+MaxSearchBlock is no longer used
+changed search pattern to a flood fill type
 
-added additional bocks to default mining block config file
+added additional blocks to default mining block config file
  Sapphire, Sulphur, Carbon, Fluorite, Cyclonite
 
- added tool degradation option set in tool config
+added tool degradation option set in tool config
  DegradeTools=true
 
- added console commands
+added console commands
  qg ToggleVeinMine   turns Vein mining on and off
  qg ToggleLumberJack turns lumber jack on and of
  qg ToggleHarvest turns harvesting on and off
+ qg Help lists all commands
+ qg Help <command> help for individual commands
+ qg SaveConfig saves current settings to config file
+ qg Ver/Version show current version
+
+Added holding down key "q" disables quick gather temporary
