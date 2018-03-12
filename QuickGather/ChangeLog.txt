@@ -7,8 +7,11 @@ changed search pattern to a flood fill type
 added additional blocks to default mining block config file
  Sapphire, Sulphur, Carbon, Fluorite, Cyclonite
 
-added tool degradation option set in tool config
- DegradeTools=true
+added tool degradation option set in configs
+LumberJack.cfg: DegradeAx=true
+VeinMine.cfg: DegradePick=true
+Harvest.cfg: DegradeScyth=true
+
 
 added console commands
  qg ToggleVeinMine   turns Vein mining on and off
@@ -19,4 +22,6 @@ added console commands
  qg SaveConfig saves current settings to config file
  qg Ver/Version show current version
 
-Added holding down key "q" disables quick gather temporary
+Added holding down key "Q" disables quick gather temporary
+change this key in LumberJack.cfg ToggleKey=Q
+for possible keys see https://msdn.microsoft.com/en-us/library/microsoft.xna.framework.input.keys.aspx

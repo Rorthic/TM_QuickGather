@@ -178,6 +178,18 @@ namespace QuickGather
             return dict.ContainsKey(key);
 
         }
+        public string GetKeyString(string key)
+        {
+            if (dict.ContainsKey(key))
+            {
+                return dict[key];
+            }
+            else
+            {
+                return "ERROR";
+            }
+
+        }
 
         #endregion
 

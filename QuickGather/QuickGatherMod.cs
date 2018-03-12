@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using StudioForge.BlockWorld;
 using StudioForge.Engine;
+using StudioForge.Engine.Core;
 using StudioForge.Engine.GamerServices;
 using StudioForge.Engine.Integration;
 using StudioForge.TotalMiner;
@@ -45,22 +46,19 @@ namespace QuickGather
         ITMMap map;
         ITMWorld world;
 
-        List<GlobalPoint3D> breakLoc; //= new List<GlobalPoint3D>();
-        List<GlobalPoint3D> searchedLoc;// = new List<GlobalPoint3D>();
         List<GlobalPoint3D> FloodSearchList;
 
-        // int grid = 2; //less then 2 doesnt work
 
         ConfigFile lumberJackToolsCfg;
         ConfigFile lumberJackBlocksCfg;
         ConfigFile veinMineToolsCfg;
         ConfigFile veinMineOresCfg;
         ConfigFile harvestToolsCfg;
-        //ConfigFile harvestBlockAuxCfg;
 
 
         int amountFound = 0;
         bool keyDown = false;
+        Keys toggleKey = Keys.Q;
 
         //to be set by config file
         //Trees
@@ -74,6 +72,7 @@ namespace QuickGather
         int maxOreToFind = 100;
         Block targetOre = Block.None;
         bool degradePick = false;
+        int mineGrid = 1;
 
         //harvest
         bool Harvesting = false;
@@ -92,6 +91,8 @@ namespace QuickGather
 
         public void InitializeGame(ITMGame game)
         {
+
+
             lumberJackToolsCfg = new ConfigFile("LumberJack.cfg");
             lumberJackBlocksCfg = new ConfigFile("LumberJackBlocks.cfg");
 
@@ -99,10 +100,8 @@ namespace QuickGather
             veinMineOresCfg = new ConfigFile("VeinMineBlocks.cfg");
 
             harvestToolsCfg = new ConfigFile("Harvest.cfg");
-            // harvestBlockAuxCfg = new ConfigFile("HarvestBlockAux.cfg");
 
-            breakLoc = new List<GlobalPoint3D>();
-            searchedLoc = new List<GlobalPoint3D>();
+
             FloodSearchList = new List<GlobalPoint3D>();
 
 
@@ -111,7 +110,6 @@ namespace QuickGather
             map = world.Map;
             game.AddEventBlockMined(Block.None, MyAction);
             game.AddConsoleCommand(ConsoleCommand, "qg", "runs specified command", "Commands: ToggleVeinMine, ToggleLumberJack, ToggleHarvest");
-
 
 
             if (!File.Exists(lumberJackToolsCfg.pathFileName))
@@ -136,13 +134,8 @@ namespace QuickGather
             {
                 BuildDefaultHarvestToolConfig();
             }
-            //if (!File.Exists(harvestBlockAuxCfg.pathFileName))
-            //{
-            //    BuildDefaultHarvestBlockConfig();
-            //}
 
             LoadAllConfigs();
-
             RetrieveConfigData();
 
 
@@ -151,6 +144,8 @@ namespace QuickGather
 
         private void LoadAllConfigs()
         {
+            //config.LoadConfig();
+
             lumberJackToolsCfg.LoadConfig();
             lumberJackBlocksCfg.LoadConfig();
 
@@ -158,20 +153,14 @@ namespace QuickGather
             veinMineOresCfg.LoadConfig();
 
             harvestToolsCfg.LoadConfig();
-            //harvestBlockAuxCfg.LoadConfig();
+
         }
 
         public bool HandleInput(ITMPlayer player)
         {
-            //if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed)
-            //{
 
-            //}
-
-
-            KeyboardState keyState = Keyboard.GetState();
-
-            if (keyState.IsKeyDown(Keys.Q))
+            //bool qPressed = InputManager.IsKeyPressed(PlayerIndex.One, Keys.Q);
+            if (InputManager.IsKeyPressed(player.PlayerIndex, toggleKey))
             {
                 keyDown = true;
             }
@@ -179,8 +168,6 @@ namespace QuickGather
             {
                 keyDown = false;
             }
-
-
             //handle special mod input keys
             return false;
         }
@@ -212,8 +199,6 @@ namespace QuickGather
         public void Draw(ITMPlayer player, ITMPlayer virtualPlayer)
         {
         }
-
-
 
         void MyAction(Block block, byte aux, GlobalPoint3D point, ITMHand hand)
         {
@@ -335,13 +320,34 @@ namespace QuickGather
             FileVersionInfo fvi = FileVersionInfo.GetVersionInfo(assembly.Location);
             string version = fvi.FileVersion;
             //Version version = Assembly.GetEntryAssembly().GetName().Version;
-           
+
             string str = "Version: " + version;
             return str;
         }
 
 
         #endregion
+        void GetCustomInputKey()
+        {
+            if (lumberJackToolsCfg.ContainsEntry("ToggleKey"))
+            {
+                string str = lumberJackToolsCfg.GetKeyString("ToggleKey");
+                if (!System.Enum.TryParse<Keys>(str, out toggleKey))
+                {
+                    //tryparse failed
+                    toggleKey = Keys.Q;
+                }
+
+                //toggleKey = (Keys)System.Enum.Parse(typeof(Keys), str);
+
+            }
+            else
+            {
+                lumberJackToolsCfg.AddConfigKey("ToggleKey", "Q");
+            }
+
+        }
+
         void SaveAllConfig()
         {
             //need to update dictionary first
@@ -383,20 +389,15 @@ namespace QuickGather
                 game.AddNotification("CFG MSG 5: " + harvestToolsCfg.playerMsg, NotifyRecipient.Local);
                 harvestToolsCfg.playerMsg = string.Empty;
             }
-            //if (harvestBlockAuxCfg.playerMsg != string.Empty)
-            //{
-            //    game.AddNotification("CFG MSG 6: " + harvestBlockAuxCfg.playerMsg, NotifyRecipient.Local);
-            //    harvestBlockAuxCfg.playerMsg = string.Empty;
-            //}
+
         }
 
         private void DoLumberJack(GlobalPoint3D point, ITMHand hand)
         {
 
             var gamerID = hand.Player.GamerID;
-            breakLoc = new List<GlobalPoint3D>();
-            searchedLoc = new List<GlobalPoint3D>();
 
+            FloodSearchList = new List<GlobalPoint3D>();
             FloodSearchList.Add(point);
 
             for (int i = 0; i < FloodSearchList.Count; i++)
@@ -406,29 +407,22 @@ namespace QuickGather
                     FloodSearchTree(FloodSearchList[i], gamerID);
                     amountFound++;
 
-                    if (degradeAx)
-                    {
-                        DecreaseHandItemDurability(hand, durabilityToRemove);
-                    }
-                    durabilityToRemove = 0;
-
-                    amountFound = 0;
                 }
                 else if (amountFound <= maxTreeToFind && durabilityToRemove <= GetRemainHandDurability(hand))
                 {//degrade is on so run this one but stop when tool will break
-                    //game.AddNotification("Durability remain: " + GetRemainHandDurability(hand) + " remove " + removeDur);
                     FloodSearchTree(FloodSearchList[i], gamerID);
                     amountFound++;
-
-                    if (degradeAx)
-                    {
-                        DecreaseHandItemDurability(hand, durabilityToRemove);
-                    }
-                    durabilityToRemove = 0;
-
-                    amountFound = 0;
                 }
+
             }
+            //game.AddNotification("dur: " + GetRemainHandDurability(hand) + " to remove " + durabilityToRemove);
+            if (degradeAx)
+            {
+                DecreaseHandItemDurability(hand, durabilityToRemove);
+            }
+            durabilityToRemove = 0;
+
+            amountFound = 0;
 
 
         }
@@ -491,101 +485,6 @@ namespace QuickGather
 
             amountFound = 0;
         }
-
-        //void SeachAdjacentTreeBlocks(GlobalPoint3D atPoint, GamerID gamerID)
-        //{
-        //    for (int x = atPoint.X - 1; x < atPoint.X + 2; x++) //3x3x3 grid x value
-        //    {
-        //        for (int y = atPoint.Y - 1; y < atPoint.Y + 2; y++)
-        //        {
-        //            for (int z = atPoint.Z - 1; z < atPoint.Z + 2; z++)
-        //            {
-        //                amountFound++;
-        //                GlobalPoint3D curPoint = new GlobalPoint3D(x, y, z);
-        //                if (!searchedLoc.Contains(curPoint))
-        //                {
-        //                    searchedLoc.Add(curPoint);
-        //                    Block here = map.GetBlockID(curPoint);
-        //                    if (IsBlockChopable(here))
-        //                    {
-        //                        durabilityToRemove++;
-
-        //                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-        //                        // BreakBlock(here);
-        //                        breakLoc.Add(curPoint);
-        //                        // SeachAdjacentBlocks(curPoint);
-
-        //                    }
-
-        //                }
-        //            }
-
-        //        }
-        //    }
-        //    //game.AddNotification("Wood blocks found: " + treeLoc.Count, NotifyRecipient.Local);
-        //}
-        //void SeachAdjacentMineBlocks(GlobalPoint3D atPoint, GamerID gamerID)
-        //{
-        //    for (int x = atPoint.X - 1; x < atPoint.X + 2; x++) //3x3x3 grid x value
-        //    {
-        //        for (int y = atPoint.Y - 1; y < atPoint.Y + 2; y++)
-        //        {
-        //            for (int z = atPoint.Z - 1; z < atPoint.Z + 2; z++)
-        //            {
-        //                GlobalPoint3D curPoint = new GlobalPoint3D(x, y, z);
-        //                amountFound++;
-        //                if (!searchedLoc.Contains(curPoint))
-        //                {
-        //                    //not yet searched
-        //                    searchedLoc.Add(curPoint);
-        //                    Block here = map.GetBlockID(curPoint);
-        //                    if (IsBlockMineable(here) && here == targetOre)
-        //                    {
-        //                        if (!IsWaterNear(curPoint) && !IsLavaNear(curPoint))
-        //                        {
-        //                            durabilityToRemove++;
-        //                            map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-        //                            breakLoc.Add(curPoint);
-        //                            amountFound++;
-        //                        }
-        //                    }
-
-        //                }
-        //            }
-
-        //        }
-        //    }
-
-        //}
-        //void SeachAdjacentCropBlocks(GlobalPoint3D atPoint, GamerID gamerID)
-        //{
-        //    for (int x = atPoint.X - 1; x < atPoint.X + 2; x++) //3x3x3 grid x value
-        //    {
-        //        for (int z = atPoint.Z - 1; z < atPoint.Z + 2; z++)
-        //        {
-        //            amountFound++;
-        //            GlobalPoint3D curPoint = new GlobalPoint3D(x, atPoint.Y, z);
-        //            // game.AddNotification("Adj curPoint " + curPoint.X + "," + curPoint.Y + "," + curPoint.Z);
-        //            if (!searchedLoc.Contains(curPoint))
-        //            {
-        //                searchedLoc.Add(curPoint);
-        //                Block here = map.GetBlockID(curPoint);
-        //                // game.AddNotification("curPoint " + curPoint.X + "," + curPoint.Y + "," + curPoint.Z);
-        //                if (IsReadyToHarvest(here, map.GetAuxData(curPoint)))
-        //                {
-        //                    durabilityToRemove++;
-        //                    map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-        //                    breakLoc.Add(curPoint);
-
-        //                }
-
-        //            }
-        //        }
-
-        //    }
-
-        //}
-
 
         void DecreaseHandItemDurability(ITMHand hand, ushort amt)
         {
@@ -766,60 +665,84 @@ namespace QuickGather
             if (lumberJackToolsCfg.ContainsEntry("LumberJack"))
             {
                 LumberJack = lumberJackToolsCfg.GetBoolEntry("LumberJack");
+
             }
             else
             {
                 lumberJackToolsCfg.AddConfigKey("LumberJack", "false");
+                LumberJack = false;
             }
+
             if (veinMineToolsCfg.ContainsEntry("VeinMining"))
             {
                 VeinMining = veinMineToolsCfg.GetBoolEntry("VeinMining");
             }
             else
             {
+                VeinMining = false;
                 veinMineToolsCfg.AddConfigKey("VeinMining", "false");
             }
+
             if (harvestToolsCfg.ContainsEntry("Harvesting"))
             {
                 Harvesting = harvestToolsCfg.GetBoolEntry("Harvesting");
             }
             else
             {
+                Harvesting = false;
                 harvestToolsCfg.AddConfigKey("Harvesting", "false");
             }
-            if (lumberJackToolsCfg.ContainsEntry("DegradeTools"))
+
+            if (lumberJackToolsCfg.ContainsEntry("DegradeAx"))
             {
-                degradeAx = lumberJackToolsCfg.GetBoolEntry("DegradeTools");
+                degradeAx = lumberJackToolsCfg.GetBoolEntry("DegradeAx");
             }
             else
             {
-                lumberJackToolsCfg.AddConfigKey("DegradeTools", "false");
+                degradeAx = false;
+                lumberJackToolsCfg.AddConfigKey("DegradeAx", "false");
             }
-            if (veinMineToolsCfg.ContainsEntry("DegradeTools"))
+
+            if (veinMineToolsCfg.ContainsEntry("DegradePick"))
             {
-                degradePick = veinMineToolsCfg.GetBoolEntry("DegradeTools");
-            }
-            else
-            {
-                veinMineToolsCfg.AddConfigKey("DegradeTools", "false");
-            }
-            if (harvestToolsCfg.ContainsEntry("DegradeTools"))
-            {
-                degradeScythe = harvestToolsCfg.GetBoolEntry("DegradeTools");
+                degradePick = veinMineToolsCfg.GetBoolEntry("DegradePick");
             }
             else
             {
-                harvestToolsCfg.AddConfigKey("DegradeTools", "false");
+                degradePick = false;
+                veinMineToolsCfg.AddConfigKey("DegradePick", "false");
+            }
+
+            if (veinMineToolsCfg.ContainsEntry("MineGrid"))
+            {
+                mineGrid = veinMineToolsCfg.GetIntEntry("MineGrid");
+            }
+            else
+            {
+                mineGrid = 1;
+                //TODO enable this?
+                //veinMineToolsCfg.AddConfigKey("MineGrid", 1.ToString());
+            }
+
+            if (harvestToolsCfg.ContainsEntry("DegradeScyth"))
+            {
+                degradeScythe = harvestToolsCfg.GetBoolEntry("DegradeScyth");
+            }
+            else
+            {
+                degradeScythe = false;
+                harvestToolsCfg.AddConfigKey("DegradeScyth", "false");
             }
 
 
-            if (lumberJackToolsCfg.ContainsEntry("MaxBlockCollection"))
+            if (lumberJackToolsCfg.ContainsEntry("LumberMaxCollection"))
             {
-                maxTreeToFind = lumberJackToolsCfg.GetIntEntry("MaxBlockCollection");
+                maxTreeToFind = lumberJackToolsCfg.GetIntEntry("LumberMaxCollection");
             }
             else
             {
-                lumberJackToolsCfg.AddConfigKey("MaxBlockCollection", 1000.ToString());
+                maxTreeToFind = 1000;
+                lumberJackToolsCfg.AddConfigKey("LumberMaxCollection", 1000.ToString());
             }
 
             if (veinMineToolsCfg.ContainsEntry("MaxBlockCollection"))
@@ -828,6 +751,7 @@ namespace QuickGather
             }
             else
             {
+                maxOreToFind = 1000;
                 veinMineToolsCfg.AddConfigKey("MaxBlockCollection", 1000.ToString());
             }
 
@@ -837,22 +761,55 @@ namespace QuickGather
             }
             else
             {
+                maxHarvestToFind = 1000;
                 harvestToolsCfg.AddConfigKey("MaxBlockCollection", 1000.ToString());
             }
+
+            GetCustomInputKey();
         }
+
+
 
         private void BuildDefaultLumberJackToolConfig()
         {
             //add a value to the config file
             //lumberjack configs
+            lumberJackToolsCfg.AddConfigKey("ToggleKey", "Q");
             lumberJackToolsCfg.AddConfigKey("MaxBlockCollection", 1000.ToString());
             lumberJackToolsCfg.AddConfigKey("LumberJack", "true");
-            veinMineToolsCfg.AddConfigKey("DegradeTools", "true");
+            lumberJackToolsCfg.AddConfigKey("DegradeAx", "true");
             lumberJackToolsCfg.AddConfigKey(Item.WoodHatchet.ToString(), "true");
             lumberJackToolsCfg.AddConfigKey(Item.IronHatchet.ToString(), "true");
             lumberJackToolsCfg.AddConfigKey(Item.SteelHatchet.ToString(), "true");
             lumberJackToolsCfg.AddConfigKey(Item.GreenstoneGoldHatchet.ToString(), "true");
             lumberJackToolsCfg.AddConfigKey(Item.DiamondHatchet.ToString(), "true");
+        }
+        private void BuildDefaultMiningToolsConfig()
+        {
+            //Mining configs
+            veinMineToolsCfg.AddConfigKey("MaxBlockCollection", 1000.ToString());
+            veinMineToolsCfg.AddConfigKey("VeinMining", "true");
+            veinMineToolsCfg.AddConfigKey("DegradePick", "true");
+            veinMineToolsCfg.AddConfigKey(Item.WoodPickaxe.ToString(), "true");
+            veinMineToolsCfg.AddConfigKey(Item.IronPickaxe.ToString(), "true");
+            veinMineToolsCfg.AddConfigKey(Item.SteelPickaxe.ToString(), "true");
+            veinMineToolsCfg.AddConfigKey(Item.GreenstoneGoldPickaxe.ToString(), "true");
+            veinMineToolsCfg.AddConfigKey(Item.DiamondPickaxe.ToString(), "true");
+            veinMineToolsCfg.AddConfigKey(Item.RubyPickaxe.ToString(), "true");
+            veinMineToolsCfg.AddConfigKey(Item.TitaniumPickaxe.ToString(), "true");
+        }
+        private void BuildDefaultHarvestToolConfig()
+        {
+            //add a value to the config file
+            //harvest configs
+            harvestToolsCfg.AddConfigKey("MaxBlockCollection", 1000.ToString());
+            harvestToolsCfg.AddConfigKey("Harvesting", "true");
+            harvestToolsCfg.AddConfigKey("DegradeScyth", "true");
+            harvestToolsCfg.AddConfigKey(Item.BronzeScythe.ToString(), "true");
+            harvestToolsCfg.AddConfigKey(Item.IronScythe.ToString(), "true");
+            harvestToolsCfg.AddConfigKey(Item.SteelScythe.ToString(), "true");
+            harvestToolsCfg.AddConfigKey(Item.DiamondScythe.ToString(), "true");
+
         }
 
         private void BuildDefaultLumberJackBlockConfig()
@@ -864,22 +821,6 @@ namespace QuickGather
             lumberJackBlocksCfg.AddConfigKey(Block.MapleLeaves.ToString(), "true");
             lumberJackBlocksCfg.AddConfigKey(Block.PineLeaves.ToString(), "true");
         }
-
-        private void BuildDefaultMiningToolsConfig()
-        {
-            //Mining configs
-            veinMineToolsCfg.AddConfigKey("MaxBlockCollection", 1000.ToString());
-            veinMineToolsCfg.AddConfigKey("VeinMining", "true");
-            veinMineToolsCfg.AddConfigKey("DegradeTools", "true");
-            veinMineToolsCfg.AddConfigKey(Item.WoodPickaxe.ToString(), "true");
-            veinMineToolsCfg.AddConfigKey(Item.IronPickaxe.ToString(), "true");
-            veinMineToolsCfg.AddConfigKey(Item.SteelPickaxe.ToString(), "true");
-            veinMineToolsCfg.AddConfigKey(Item.GreenstoneGoldPickaxe.ToString(), "true");
-            veinMineToolsCfg.AddConfigKey(Item.DiamondPickaxe.ToString(), "true");
-            veinMineToolsCfg.AddConfigKey(Item.RubyPickaxe.ToString(), "true");
-            veinMineToolsCfg.AddConfigKey(Item.TitaniumPickaxe.ToString(), "true");
-        }
-
         private void BuildDefaultMiningBlocksConfig()
         {
             //mining blocks
@@ -907,19 +848,7 @@ namespace QuickGather
 
         }
 
-        private void BuildDefaultHarvestToolConfig()
-        {
-            //add a value to the config file
-            //harvest configs
-            harvestToolsCfg.AddConfigKey("MaxBlockCollection", 1000.ToString());
-            harvestToolsCfg.AddConfigKey("Harvesting", "true");
-            veinMineToolsCfg.AddConfigKey("DegradeTools", "true");
-            harvestToolsCfg.AddConfigKey(Item.BronzeScythe.ToString(), "true");
-            harvestToolsCfg.AddConfigKey(Item.IronScythe.ToString(), "true");
-            harvestToolsCfg.AddConfigKey(Item.SteelScythe.ToString(), "true");
-            harvestToolsCfg.AddConfigKey(Item.DiamondScythe.ToString(), "true");
 
-        }
 
         void FloodSearchTree(GlobalPoint3D point, GamerID gamerID)
         {
@@ -1006,142 +935,179 @@ namespace QuickGather
         void FloodSearchOre(GlobalPoint3D point, GamerID gamerID, Block workingOre)
         {
             GlobalPoint3D curPoint;
+            Block curOre;
 
             //north x+
-            curPoint = new GlobalPoint3D(point.X + 1, point.Y, point.Z);
-            Block curOre = map.GetBlockID(curPoint);
-
-            if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+            for (int i = 0; i <= mineGrid; i++)
             {
+                curPoint = new GlobalPoint3D(point.X + i, point.Y, point.Z);
+                curOre = map.GetBlockID(curPoint);
 
-                if (!FloodSearchList.Contains(curPoint))
+                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
                 {
-                    FloodSearchList.Add(curPoint);
-                    map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                    durabilityToRemove++;
-                    amountFound++;
+
+                    if (!FloodSearchList.Contains(curPoint))
+                    {
+                        FloodSearchList.Add(curPoint);
+                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                        durabilityToRemove++;
+                        amountFound++;
+                    }
                 }
             }
 
             //south X-
-            curPoint = new GlobalPoint3D(point.X - 1, point.Y, point.Z);
-            curOre = map.GetBlockID(curPoint);
-            if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+            for (int i = 0; i <= mineGrid; i++)
             {
-                if (!FloodSearchList.Contains(curPoint))
+                curPoint = new GlobalPoint3D(point.X - i, point.Y, point.Z);
+                curOre = map.GetBlockID(curPoint);
+                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
                 {
-                    FloodSearchList.Add(curPoint);
-                    map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                    durabilityToRemove++;
-                    amountFound++;
+                    if (!FloodSearchList.Contains(curPoint))
+                    {
+                        FloodSearchList.Add(curPoint);
+                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                        durabilityToRemove++;
+                        amountFound++;
+                    }
                 }
             }
+
             //east z+
-            curPoint = new GlobalPoint3D(point.X, point.Y, point.Z + 1);
-            curOre = map.GetBlockID(curPoint);
-            if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+            for (int i = 0; i <= mineGrid; i++)
             {
-                if (!FloodSearchList.Contains(curPoint))
+                curPoint = new GlobalPoint3D(point.X, point.Y, point.Z + i);
+                curOre = map.GetBlockID(curPoint);
+                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
                 {
-                    FloodSearchList.Add(curPoint);
-                    map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                    durabilityToRemove++;
-                    amountFound++;
+                    if (!FloodSearchList.Contains(curPoint))
+                    {
+                        FloodSearchList.Add(curPoint);
+                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                        durabilityToRemove++;
+                        amountFound++;
+                    }
                 }
             }
+
             //west z-
-            curPoint = new GlobalPoint3D(point.X, point.Y, point.Z - 1);
-            curOre = map.GetBlockID(curPoint);
-            if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+            for (int i = 0; i <= mineGrid; i++)
             {
-                if (!FloodSearchList.Contains(curPoint))
+                curPoint = new GlobalPoint3D(point.X, point.Y, point.Z - i);
+                curOre = map.GetBlockID(curPoint);
+                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
                 {
-                    FloodSearchList.Add(curPoint);
-                    map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                    durabilityToRemove++;
-                    amountFound++;
+                    if (!FloodSearchList.Contains(curPoint))
+                    {
+                        FloodSearchList.Add(curPoint);
+                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                        durabilityToRemove++;
+                        amountFound++;
+                    }
                 }
             }
+
             //diagonals +x,-z
-            curPoint = new GlobalPoint3D(point.X + 1, point.Y, point.Z - 1);
-            curOre = map.GetBlockID(curPoint);
-            if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+            for (int i = 0; i <= mineGrid; i++)
             {
-                if (!FloodSearchList.Contains(curPoint))
+                curPoint = new GlobalPoint3D(point.X + i, point.Y, point.Z - i);
+                curOre = map.GetBlockID(curPoint);
+                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
                 {
-                    FloodSearchList.Add(curPoint);
-                    map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                    durabilityToRemove++;
-                    amountFound++;
+                    if (!FloodSearchList.Contains(curPoint))
+                    {
+                        FloodSearchList.Add(curPoint);
+                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                        durabilityToRemove++;
+                        amountFound++;
+                    }
                 }
             }
 
             //diagonals +x,+z
-            curPoint = new GlobalPoint3D(point.X + 1, point.Y, point.Z + 1);
-            curOre = map.GetBlockID(curPoint);
-            if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+            for (int i = 0; i <= mineGrid; i++)
             {
-                if (!FloodSearchList.Contains(curPoint))
+                curPoint = new GlobalPoint3D(point.X + i, point.Y, point.Z + i);
+                curOre = map.GetBlockID(curPoint);
+                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
                 {
-                    FloodSearchList.Add(curPoint);
-                    map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                    durabilityToRemove++;
-                    amountFound++;
-                }
-            }
-            //diagonals -x,+z
-            curPoint = new GlobalPoint3D(point.X - 1, point.Y, point.Z + 1);
-            curOre = map.GetBlockID(curPoint);
-            if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
-            {
-                if (!FloodSearchList.Contains(curPoint))
-                {
-                    FloodSearchList.Add(curPoint);
-                    map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                    durabilityToRemove++;
-                    amountFound++;
-                }
-            }
-            //diagonals -x,-z
-            curPoint = new GlobalPoint3D(point.X - 1, point.Y, point.Z - 1);
-            curOre = map.GetBlockID(curPoint);
-            if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
-            {
-                if (!FloodSearchList.Contains(curPoint))
-                {
-                    FloodSearchList.Add(curPoint);
-                    map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                    durabilityToRemove++;
-                    amountFound++;
-                }
-            }
-            //up y+
-            curPoint = new GlobalPoint3D(point.X, point.Y + 1, point.Z);
-            curOre = map.GetBlockID(curPoint);
-            if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
-            {
-                if (!FloodSearchList.Contains(curPoint))
-                {
-                    FloodSearchList.Add(curPoint);
-                    map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                    durabilityToRemove++;
-                    amountFound++;
-                }
-            }
-            //dn y-
-            curPoint = new GlobalPoint3D(point.X, point.Y - 1, point.Z);
-            curOre = map.GetBlockID(curPoint);
-            if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
-            {
-                if (!FloodSearchList.Contains(curPoint))
-                {
-                    FloodSearchList.Add(curPoint);
-                    map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                    durabilityToRemove++;
-                    amountFound++;
+                    if (!FloodSearchList.Contains(curPoint))
+                    {
+                        FloodSearchList.Add(curPoint);
+                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                        durabilityToRemove++;
+                        amountFound++;
+                    }
                 }
             }
 
+            //diagonals -x,+z
+            for (int i = 0; i <= mineGrid; i++)
+            {
+                curPoint = new GlobalPoint3D(point.X - i, point.Y, point.Z + i);
+                curOre = map.GetBlockID(curPoint);
+                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+                {
+                    if (!FloodSearchList.Contains(curPoint))
+                    {
+                        FloodSearchList.Add(curPoint);
+                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                        durabilityToRemove++;
+                        amountFound++;
+                    }
+                }
+            }
+
+            //diagonals -x,-z
+            for (int i = 0; i <= mineGrid; i++)
+            {
+                curPoint = new GlobalPoint3D(point.X - i, point.Y, point.Z - i);
+                curOre = map.GetBlockID(curPoint);
+                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+                {
+                    if (!FloodSearchList.Contains(curPoint))
+                    {
+                        FloodSearchList.Add(curPoint);
+                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                        durabilityToRemove++;
+                        amountFound++;
+                    }
+                }
+            }
+
+            //up y+
+            for (int i = 0; i <= mineGrid; i++)
+            {
+                curPoint = new GlobalPoint3D(point.X, point.Y + i, point.Z);
+                curOre = map.GetBlockID(curPoint);
+                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+                {
+                    if (!FloodSearchList.Contains(curPoint))
+                    {
+                        FloodSearchList.Add(curPoint);
+                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                        durabilityToRemove++;
+                        amountFound++;
+                    }
+                }
+            }
+
+            //dn y-
+            for (int i = 0; i <= mineGrid; i++)
+            {
+                curPoint = new GlobalPoint3D(point.X, point.Y - i, point.Z);
+                curOre = map.GetBlockID(curPoint);
+                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+                {
+                    if (!FloodSearchList.Contains(curPoint))
+                    {
+                        FloodSearchList.Add(curPoint);
+                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                        durabilityToRemove++;
+                        amountFound++;
+                    }
+                }
+            }
         }
 
         void FloodSearchCrop(GlobalPoint3D point, GamerID gamerID)
@@ -1208,5 +1174,11 @@ namespace QuickGather
             return str;
         }
 
+
+
+        #region depreciated
+
+
+        #endregion
     }
 }
