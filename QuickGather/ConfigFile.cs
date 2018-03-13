@@ -37,12 +37,16 @@ namespace QuickGather
         #region Functions
         public void SaveConfig()
         {
-
-            using (StreamWriter outputFile = new StreamWriter(pathFileName))
+          // StreamReader reader = TextFileParser.GetReader(pathFileName);
+           using (StreamWriter outputFile = new StreamWriter(pathFileName))
+              //using(reader)
             {
                 //write to file from dictionary
                 foreach (var entry in dict)
+                {
                     outputFile.WriteLine("{0}{1}{2}", entry.Key, "=", entry.Value);
+                    //TextFileParser.WriteString(pathFileName, entry.Key, entry.Value);
+                }
             }
 
         }

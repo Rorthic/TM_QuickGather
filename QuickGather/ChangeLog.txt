@@ -10,6 +10,7 @@ added additional blocks to default mining block config file
 added tool degradation option set in configs
 LumberJack.cfg: DegradeAx=true
 VeinMine.cfg: DegradePick=true
+Not added by default: MineGrid=1
 Harvest.cfg: DegradeScyth=true
 
 
