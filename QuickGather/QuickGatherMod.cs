@@ -73,6 +73,7 @@ namespace QuickGather
         Block targetOre = Block.None;
         bool degradePick = false;
         int mineGrid = 1;
+        bool sameOreOnly = true;
 
         //harvest
         bool Harvesting = false;
@@ -660,7 +661,7 @@ namespace QuickGather
         void RetrieveConfigData()
         {
             //retrieve the value from the config and save them here for use
-            //TODO if the value doesnt exist create it
+            //if the value doesnt exist create it
 
             if (lumberJackToolsCfg.ContainsEntry("LumberJack"))
             {
@@ -720,8 +721,19 @@ namespace QuickGather
             else
             {
                 mineGrid = 1;
-                //TODO enable this?
-                //veinMineToolsCfg.AddConfigKey("MineGrid", 1.ToString());
+              //hidden value players can add the key to change it but its not displayed.
+                //  veinMineToolsCfg.AddConfigKey("MineGrid", 1.ToString());
+            }
+
+            if (veinMineToolsCfg.ContainsEntry("SameOreOnly"))
+            {
+                sameOreOnly = veinMineToolsCfg.GetBoolEntry("SameOreOnly");
+            }
+            else
+            {
+                sameOreOnly = true;
+
+                veinMineToolsCfg.AddConfigKey("SameOreOnly", "true");
             }
 
             if (harvestToolsCfg.ContainsEntry("DegradeScyth"))
@@ -790,6 +802,8 @@ namespace QuickGather
             veinMineToolsCfg.AddConfigKey("MaxBlockCollection", 1000.ToString());
             veinMineToolsCfg.AddConfigKey("VeinMining", "true");
             veinMineToolsCfg.AddConfigKey("DegradePick", "true");
+            veinMineToolsCfg.AddConfigKey("SameOreOnly", "true");
+           // veinMineToolsCfg.AddConfigKey("MineGrid", 1.ToString()); //hidden value
             veinMineToolsCfg.AddConfigKey(Item.WoodPickaxe.ToString(), "true");
             veinMineToolsCfg.AddConfigKey(Item.IronPickaxe.ToString(), "true");
             veinMineToolsCfg.AddConfigKey(Item.SteelPickaxe.ToString(), "true");
@@ -937,89 +951,107 @@ namespace QuickGather
             GlobalPoint3D curPoint;
             Block curOre;
 
-            //north x+
-            for (int i = 0; i <= mineGrid; i++)
+            for (int y = mineGrid; y >= -mineGrid; y--)
             {
-                curPoint = new GlobalPoint3D(point.X + i, point.Y, point.Z);
-                curOre = map.GetBlockID(curPoint);
-
-                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+               
+                //north x+
+                for (int i = 0; i <= mineGrid; i++)
                 {
+                    curPoint = new GlobalPoint3D(point.X + i, point.Y + y, point.Z);
+                    curOre = map.GetBlockID(curPoint);
 
-                    if (!FloodSearchList.Contains(curPoint))
+                    if (IsBlockMineable(map.GetBlockID(curPoint)) && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
                     {
-                        FloodSearchList.Add(curPoint);
-                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                        durabilityToRemove++;
-                        amountFound++;
+                        if (sameOreOnly && curOre == workingOre || !sameOreOnly)
+                        {
+                            if (!FloodSearchList.Contains(curPoint))
+                            {
+                                FloodSearchList.Add(curPoint);
+                                map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                                durabilityToRemove++;
+                                amountFound++;
+                            }
+                        }
                     }
                 }
-            }
 
-            //south X-
-            for (int i = 0; i <= mineGrid; i++)
-            {
-                curPoint = new GlobalPoint3D(point.X - i, point.Y, point.Z);
-                curOre = map.GetBlockID(curPoint);
-                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+                //south X-
+                for (int i = 0; i <= mineGrid; i++)
                 {
-                    if (!FloodSearchList.Contains(curPoint))
+                    curPoint = new GlobalPoint3D(point.X - i, point.Y + y, point.Z);
+                    curOre = map.GetBlockID(curPoint);
+                    if (IsBlockMineable(map.GetBlockID(curPoint)) && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
                     {
-                        FloodSearchList.Add(curPoint);
-                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                        durabilityToRemove++;
-                        amountFound++;
+                        if (sameOreOnly && curOre == workingOre || !sameOreOnly)
+                        {
+                            if (!FloodSearchList.Contains(curPoint))
+                            {
+                                FloodSearchList.Add(curPoint);
+                                map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                                durabilityToRemove++;
+                                amountFound++;
+                            }
+                        }
                     }
                 }
-            }
 
-            //east z+
-            for (int i = 0; i <= mineGrid; i++)
-            {
-                curPoint = new GlobalPoint3D(point.X, point.Y, point.Z + i);
-                curOre = map.GetBlockID(curPoint);
-                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+                //east z+
+                for (int i = 0; i <= mineGrid; i++)
                 {
-                    if (!FloodSearchList.Contains(curPoint))
+                    curPoint = new GlobalPoint3D(point.X, point.Y + y, point.Z + i);
+                    curOre = map.GetBlockID(curPoint);
+
+                    if (IsBlockMineable(map.GetBlockID(curPoint)) && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
                     {
-                        FloodSearchList.Add(curPoint);
-                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                        durabilityToRemove++;
-                        amountFound++;
+                        if (sameOreOnly && curOre == workingOre || !sameOreOnly)
+                        {
+                            if (!FloodSearchList.Contains(curPoint))
+                            {
+                                FloodSearchList.Add(curPoint);
+                                map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                                durabilityToRemove++;
+                                amountFound++;
+                            }
+                        }
                     }
                 }
-            }
 
-            //west z-
-            for (int i = 0; i <= mineGrid; i++)
-            {
-                curPoint = new GlobalPoint3D(point.X, point.Y, point.Z - i);
-                curOre = map.GetBlockID(curPoint);
-                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+                //west z-
+                for (int i = 0; i <= mineGrid; i++)
                 {
-                    if (!FloodSearchList.Contains(curPoint))
+                    curPoint = new GlobalPoint3D(point.X, point.Y + y, point.Z - i);
+                    curOre = map.GetBlockID(curPoint);
+                    if (IsBlockMineable(map.GetBlockID(curPoint)) && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
                     {
-                        FloodSearchList.Add(curPoint);
-                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                        durabilityToRemove++;
-                        amountFound++;
+                        if (sameOreOnly && curOre == workingOre || !sameOreOnly)
+                        {
+                            if (!FloodSearchList.Contains(curPoint))
+                            {
+                                FloodSearchList.Add(curPoint);
+                                map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                                durabilityToRemove++;
+                                amountFound++;
+                            }
+                        }
                     }
                 }
-            }
-
+                
             //diagonals +x,-z
             for (int i = 0; i <= mineGrid; i++)
             {
-                curPoint = new GlobalPoint3D(point.X + i, point.Y, point.Z - i);
+                curPoint = new GlobalPoint3D(point.X + i, point.Y + y, point.Z - i);
                 curOre = map.GetBlockID(curPoint);
-                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+                if (IsBlockMineable(map.GetBlockID(curPoint)) && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
                 {
-                    if (!FloodSearchList.Contains(curPoint))
+                    if (sameOreOnly && curOre == workingOre || !sameOreOnly)
                     {
-                        FloodSearchList.Add(curPoint);
-                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                        durabilityToRemove++;
-                        amountFound++;
+                        if (!FloodSearchList.Contains(curPoint))
+                        {
+                            FloodSearchList.Add(curPoint);
+                            map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                            durabilityToRemove++;
+                            amountFound++;
+                        }
                     }
                 }
             }
@@ -1027,16 +1059,19 @@ namespace QuickGather
             //diagonals +x,+z
             for (int i = 0; i <= mineGrid; i++)
             {
-                curPoint = new GlobalPoint3D(point.X + i, point.Y, point.Z + i);
+                curPoint = new GlobalPoint3D(point.X + i, point.Y + y, point.Z + i);
                 curOre = map.GetBlockID(curPoint);
-                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+                if (IsBlockMineable(map.GetBlockID(curPoint)) && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
                 {
-                    if (!FloodSearchList.Contains(curPoint))
+                    if (sameOreOnly && curOre == workingOre || !sameOreOnly)
                     {
-                        FloodSearchList.Add(curPoint);
-                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                        durabilityToRemove++;
-                        amountFound++;
+                        if (!FloodSearchList.Contains(curPoint))
+                        {
+                            FloodSearchList.Add(curPoint);
+                            map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                            durabilityToRemove++;
+                            amountFound++;
+                        }
                     }
                 }
             }
@@ -1044,16 +1079,19 @@ namespace QuickGather
             //diagonals -x,+z
             for (int i = 0; i <= mineGrid; i++)
             {
-                curPoint = new GlobalPoint3D(point.X - i, point.Y, point.Z + i);
+                curPoint = new GlobalPoint3D(point.X - i, point.Y + y, point.Z + i);
                 curOre = map.GetBlockID(curPoint);
-                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+                if (IsBlockMineable(map.GetBlockID(curPoint)) && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
                 {
-                    if (!FloodSearchList.Contains(curPoint))
+                    if (sameOreOnly && curOre == workingOre || !sameOreOnly)
                     {
-                        FloodSearchList.Add(curPoint);
-                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                        durabilityToRemove++;
-                        amountFound++;
+                        if (!FloodSearchList.Contains(curPoint))
+                        {
+                            FloodSearchList.Add(curPoint);
+                            map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                            durabilityToRemove++;
+                            amountFound++;
+                        }
                     }
                 }
             }
@@ -1061,59 +1099,31 @@ namespace QuickGather
             //diagonals -x,-z
             for (int i = 0; i <= mineGrid; i++)
             {
-                curPoint = new GlobalPoint3D(point.X - i, point.Y, point.Z - i);
+                curPoint = new GlobalPoint3D(point.X - i, point.Y + y, point.Z - i);
                 curOre = map.GetBlockID(curPoint);
-                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
+                if (IsBlockMineable(map.GetBlockID(curPoint)) && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
                 {
-                    if (!FloodSearchList.Contains(curPoint))
+                    if (sameOreOnly && curOre == workingOre || !sameOreOnly)
                     {
-                        FloodSearchList.Add(curPoint);
-                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                        durabilityToRemove++;
-                        amountFound++;
+                        if (!FloodSearchList.Contains(curPoint))
+                        {
+                            FloodSearchList.Add(curPoint);
+                            map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
+                            durabilityToRemove++;
+                            amountFound++;
+                        }
                     }
                 }
             }
 
-            //up y+
-            for (int i = 0; i <= mineGrid; i++)
-            {
-                curPoint = new GlobalPoint3D(point.X, point.Y + i, point.Z);
-                curOre = map.GetBlockID(curPoint);
-                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
-                {
-                    if (!FloodSearchList.Contains(curPoint))
-                    {
-                        FloodSearchList.Add(curPoint);
-                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                        durabilityToRemove++;
-                        amountFound++;
-                    }
-                }
-            }
+        }      
 
-            //dn y-
-            for (int i = 0; i <= mineGrid; i++)
-            {
-                curPoint = new GlobalPoint3D(point.X, point.Y - i, point.Z);
-                curOre = map.GetBlockID(curPoint);
-                if (IsBlockMineable(map.GetBlockID(curPoint)) && curOre == workingOre && !IsLavaNear(curPoint) && !IsWaterNear(curPoint))
-                {
-                    if (!FloodSearchList.Contains(curPoint))
-                    {
-                        FloodSearchList.Add(curPoint);
-                        map.ClearBlock(curPoint, UpdateBlockMethod.PlayerRelated, gamerID, true);
-                        durabilityToRemove++;
-                        amountFound++;
-                    }
-                }
-            }
         }
 
         void FloodSearchCrop(GlobalPoint3D point, GamerID gamerID)
         {
 
-            //TODO MAYBE diagional search pattern?
+
             GlobalPoint3D curPoint;
 
             //north x+

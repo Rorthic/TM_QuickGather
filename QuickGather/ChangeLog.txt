@@ -1,5 +1,12 @@
 ﻿
-ver 1.1
+ver 1.1.1
+added settings to VeinMine.cfg:
+	SameOreOnly=true  whether or not vein mine should break all ores or just the type you mined
+	MineGrid=1 is a hidden value that determines how far out from each ore to look for more ore, defaults to 1 unless you add the value to the config file and change it.
+altered ore search to use a combination of flood and grid search patterns
+	
+
+ver 1.1.0
 changed MaxSearchBlock to MaxBlockCollection with default 1000
 MaxSearchBlock is no longer used
 changed search pattern to a flood fill type
